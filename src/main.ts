@@ -2,9 +2,30 @@
 import p5 from "p5";
 
 
-const element=document.querySelector("#app")
-console.log(element);
+// const WebR=require("webr");
 
+import { RFunction, WebR } from 'webr';
+
+const element=document.querySelector("#app")
+const loading=document.querySelector("#loading")
+
+loading?.classList.remove("hidden")
+
+const webR = new WebR();
+
+
+// await webR.init();
+
+
+// let rFunction=await fetch("/R/script.r");
+
+// webR.evalR(await rFunction.text())
+
+// let  prt=await webR.evalR('p') as RFunction;
+
+// console.log(await prt("hello world"));
+
+loading?.classList.add("hidden")
 
 
 let p=new p5((p:p5) =>{
@@ -21,8 +42,7 @@ let p=new p5((p:p5) =>{
     let originX=0;
     let originY=0;
 
-    // let delay=0;
-    // let done=false
+    let endpoints: number[][]=[];
     let pg:p5.Graphics;
     let width=p.width;
     let height=p.height;
@@ -30,12 +50,22 @@ let p=new p5((p:p5) =>{
     let mouseY=-10;
     let pmouseX=-10;
     let pmouseY=-10;
+    let drawMode=false;
+    let selectMode=false;
+    let reDraw=false;
 
-    function numberFormat(x:number){
-        if (planeP<0){
-            if (planeP<-5){
+
+    function numberFormat(x:number,sp?:boolean){
+        if (planeP<0 || sp){
+            if (planeP<-5 || planeP>3){
                 return x.toExponential(1);
-            }else{                        
+            }else if (sp){  
+                if (planeP){
+                    return x.toFixed(2)  
+                }else{
+                    return x.toFixed(3)  
+                }
+            }else{
                 return x.toFixed(p.abs(planeP));     
             }
         }else{
@@ -48,7 +78,7 @@ let p=new p5((p:p5) =>{
     }
     function draw(){
         pg.stroke(219,118,117)
-        pg.strokeWeight(4)
+        pg.strokeWeight(2)
         if (p.mouseIsPressed){
                 if (mouseX===-10){
                     mouseX=p.mouseX
@@ -118,7 +148,8 @@ let p=new p5((p:p5) =>{
     }
     function drawPlane(){
 
-        if (p.mouseIsPressed&&done){
+        if (p.mouseIsPressed&&!drawMode&&!selectMode){
+            reDraw=true;
             originX+=(p.mouseX-p.pmouseX);
             originY+=(p.mouseY-p.pmouseY);
         }
@@ -164,43 +195,87 @@ let p=new p5((p:p5) =>{
         p.line(0,originY,width,originY)
     }
     p.draw = ()=>{
-        // console.log("----------------------------------------------");
-        // console.log(square);
-        // console.log(originX);
-        
-        drawPlane()
-        // console.log(data);
-        // console.log(scale);
-        if (done){
-            pg.clear()
-            pg.stroke(219,118,117)
-            pg.strokeWeight(4)
-            let pI=plane[planeI]
-            let power=p.pow(10,planeP);
-            let sc=pI*power;
 
-            for (let i=1;i<data.length;i++){
-                // if (!done){
-                //     console.log([(data[i-1][0]-originX)/square,(data[i-1][1]-originY)/square]);
-                // }
-                
-                pg.line(data[i-1][0]*square/sc+originX,-data[i-1][1]/sc*square+originY,data[i][0]*square/sc+originX,-data[i][1]*square/sc+originY)
+        drawPlane()
+
+        if (done){
+            if (reDraw){
+                pg.clear()
+                pg.stroke(219,118,117)
+                pg.strokeWeight(4)
+                let pI=plane[planeI]
+                let power=p.pow(10,planeP);
+                let sc=pI*power;
+                for (let i=1;i<data.length;i++){
+                    pg.line(data[i-1][0]*square/sc+originX,-data[i-1][1]/sc*square+originY,data[i][0]*square/sc+originX,-data[i][1]*square/sc+originY)
+                }
+                reDraw=false;
             }
-            // done=true
             p.image(pg,0,0)
+            if (pg.get(p.mouseX,p.mouseY)[0]!==0){
+                let pI=plane[planeI];
+                let power=p.pow(10,planeP)
+                let sc=pI*power;
+                p.fill(170,230)
+                p.strokeCap("round")
+                p.rect(p.mouseX-150,p.mouseY-15,140,40,10);
+                p.fill(0,200)
+                p.stroke(0,200)
+                p.textSize(15)
+                p.text(`(${numberFormat((p.mouseX-originX)*sc/square,true)} , ${numberFormat((originY-p.mouseY)*sc/square,true)})`,p.mouseX-80,p.mouseY+10)
+                p.noFill()
+            }
+            if (selectMode){
+                p.fill(84,140,140)
+                // p.noStroke()
+                p.circle(p.mouseX,p.mouseY,10);
+
+            }
+            
+            
+            endpoints.forEach((e)=>{
+                let pI=plane[planeI];
+                let power=p.pow(10,planeP)
+                let sc=pI*power;
+                p.fill(84,140,140)
+                p.stroke(0,200)
+                p.circle(e[0]*square/sc+originX,-e[1]*square/sc+originY,12)
+                console.log("----------------------------------------");
+                console.log(endpoints);
+                
+                
+            })
+            
         }else{
-            draw()
+            if (drawMode){
+                draw()
+            }
+            p.image(pg,0,0)
         }
+        // }else{
+            // }
         
-        // console.log(square/dSquare);
+    }
+    p.mouseClicked=()=>{
+        let pI=plane[planeI];
+        let power=p.pow(10,planeP)
+        let sc=pI*power;
+        if (endpoints.length<2&&selectMode){
+            endpoints.push([(p.mouseX-originX)*sc/square,(originY-p.mouseY)*sc/square])
+        }        
     } 
 
     p.mouseReleased =()=>{
-        done=true;
+        if (drawMode){
+            done=true;
+            drawMode=false;
+        }
     }
     p.mouseWheel=(e:any)=>{
     // let mouseWheel=(e:any)=>{
+        reDraw=true;
         if (e.deltaY>0){
+            
                 originX-=scaleFactor*(p.mouseX-originX)/square
                 originY-=scaleFactor*(p.mouseY-originY)/square
                 square+=scaleFactor;
@@ -212,18 +287,18 @@ let p=new p5((p:p5) =>{
                 //         originY+=((p.mouseY-originY)/4)
                 //     }
                 // }
-                // console.log("----------------------------------------");
-                
-                // console.log(scaleFactor*((p.mouseX-originX)/(square*2)));
-                // console.log(scaleFactor*((p.mouseX-originX)/(square)));
-                
-                originX+=scaleFactor*((p.mouseX-originX)/(square))
-                originY+=scaleFactor*((p.mouseY-originY)/(square))
+                // 
+                if (square===dSquare){
+                    originX+=scaleFactor*((p.mouseX-originX)/(square*2))
+                    originY+=scaleFactor*((p.mouseY-originY)/(square*2))
+                }else{
+                    originX+=scaleFactor*((p.mouseX-originX)/(square))
+                    originY+=scaleFactor*((p.mouseY-originY)/(square))
+                }
                 square-=scaleFactor;
             }
             
             if (square===dSquare*2){
-            //   console.log("hello");
               
               if (planeI===1){
                   originX-=((p.mouseX-originX)/4)
@@ -254,14 +329,12 @@ let p=new p5((p:p5) =>{
                 }
             }
             if (square<dSquare){
-            //     if(planeI===plane.length-1){
-            // //   //   //   console.log("hello");
+                if(planeI===plane.length-1){
+            //   //   //   console.log("hello");
                   
-            //       originX+=((p.mouseX-originX)/5)
-            //       originY+=((p.mouseY-originY)/5)
-            //    }
-            console.log("hello");
-            
+                  originX+=((p.mouseX-originX)/5)
+                  originY+=((p.mouseY-originY)/5)
+               }            
             
 
                 square=dSquare*2-scaleFactor;
@@ -281,7 +354,20 @@ let p=new p5((p:p5) =>{
                     // }
                 }
              }  
-    }   
+    } 
+    p.keyPressed=(e:any)=>{
+        
+        if (e.key==="d"){
+            if (!done){
+                drawMode=!drawMode;
+            }else{
+                drawMode=false;
+            }
+        }else if(e.key==="s"&&done){
+            selectMode=!selectMode;
+        }
+        
+    }  
 })
 
 
