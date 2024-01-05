@@ -2,9 +2,7 @@
 import p5 from "p5";
 
 
-// const WebR=require("webr");
-
-import { RFunction, WebR } from 'webr';
+import { RDouble, RFunction, RObject, WebR } from 'webr';
 
 const element=document.querySelector("#app")
 const loading=document.querySelector("#loading")
@@ -14,14 +12,14 @@ loading?.classList.remove("hidden")
 const webR = new WebR();
 
 
-// await webR.init();
+await webR.init();
 
 
-// let rFunction=await fetch("/R/script.r");
+let rFunction=await fetch("/R/script.r");
 
-// webR.evalR(await rFunction.text())
+webR.evalR(await rFunction.text())
 
-// let  prt=await webR.evalR('p') as RFunction;
+let  ddiv=await webR.evalR('difference_diviseP1') as RFunction;
 
 // console.log(await prt("hello world"));
 
@@ -30,6 +28,7 @@ loading?.classList.add("hidden")
 
 let p=new p5((p:p5) =>{
     let data: number[][]=[];
+    let poly: number[]=[]
     const plane=[1,5,2]
     let planeI=0;
     let planeP=0;
@@ -38,22 +37,34 @@ let p=new p5((p:p5) =>{
     const dSquare=100;
     let square= 100
     const smallSquaresCount=5;
-    let done=false;
     let originX=0;
     let originY=0;
 
-    let endpoints: number[][]=[];
     let pg:p5.Graphics;
     let width=p.width;
     let height=p.height;
-    let mouseX=-10;
-    let mouseY=-10;
-    let pmouseX=-10;
-    let pmouseY=-10;
     let drawMode=false;
-    let selectMode=false;
     let reDraw=false;
 
+
+    function calcPoly(x:number){
+        if (poly.length>=1){
+            let y=poly[0]
+            let dataX=data.map((e)=>e[0]);
+            for (let i=1;i<poly.length;i++){
+                
+                let k=1;
+                for (let j=0;j<i;j++){
+                    k*=(x-dataX[j])
+                }
+                
+                y+=poly[i]*k
+                
+            }
+            return y;
+        }
+        return 0;
+    }
 
     function numberFormat(x:number,sp?:boolean){
         if (planeP<0 || sp){
@@ -76,6 +87,8 @@ let p=new p5((p:p5) =>{
             }
         }
     }
+
+    /*
     function draw(){
         pg.stroke(219,118,117)
         pg.strokeWeight(2)
@@ -126,6 +139,8 @@ let p=new p5((p:p5) =>{
         p.image(pg,0,0)
         p.fill(153,153,153)
     }
+    */
+
     function drawSmallSquares(pSquareX:number,pSquareY:number){
         let smallSquare=square/smallSquaresCount;
         p.stroke(50,51,52)
@@ -144,11 +159,11 @@ let p=new p5((p:p5) =>{
         originX=p.width/2;
         originY=p.height/2
         width=p.width;
-        height=p.height
+        height=p.height;
     }
     function drawPlane(){
 
-        if (p.mouseIsPressed&&!drawMode&&!selectMode){
+        if (p.mouseIsPressed&&!drawMode){
             reDraw=true;
             originX+=(p.mouseX-p.pmouseX);
             originY+=(p.mouseY-p.pmouseY);
@@ -198,79 +213,83 @@ let p=new p5((p:p5) =>{
 
         drawPlane()
 
-        if (done){
+        if (!drawMode){
             if (reDraw){
+                
                 pg.clear()
                 pg.stroke(219,118,117)
                 pg.strokeWeight(4)
                 let pI=plane[planeI]
                 let power=p.pow(10,planeP);
                 let sc=pI*power;
-                for (let i=1;i<data.length;i++){
-                    pg.line(data[i-1][0]*square/sc+originX,-data[i-1][1]/sc*square+originY,data[i][0]*square/sc+originX,-data[i][1]*square/sc+originY)
+                if (poly.length>1){                    
+                    let step=(data[data.length-1][0]-data[0][0])/100
+                    let x0=data[0][0];
+
+                    console.log(poly);
+                    
+
+                    for (let i=0;i<100;i++){
+                        let x=(x0+step*i)*square/sc+originX
+                        let x1=(x0+step*(i+1))*square/sc+originX
+                        let y=-1*calcPoly(x0+step*i)/sc*square+originY;
+                        let y1=-1*calcPoly(x0+step*(i+1))/sc*square+originY;
+                        pg.line(x,y,x1,y1)
+                    }
                 }
                 reDraw=false;
             }
-            p.image(pg,0,0)
-            if (pg.get(p.mouseX,p.mouseY)[0]!==0){
-                let pI=plane[planeI];
-                let power=p.pow(10,planeP)
-                let sc=pI*power;
-                p.fill(170,230)
-                p.strokeCap("round")
-                p.rect(p.mouseX-150,p.mouseY-15,140,40,10);
-                p.fill(0,200)
-                p.stroke(0,200)
-                p.textSize(15)
-                p.text(`(${numberFormat((p.mouseX-originX)*sc/square,true)} , ${numberFormat((originY-p.mouseY)*sc/square,true)})`,p.mouseX-80,p.mouseY+10)
-                p.noFill()
-            }
-            if (selectMode){
-                p.fill(84,140,140)
-                // p.noStroke()
-                p.circle(p.mouseX,p.mouseY,10);
-
-            }
-            
-            
-            endpoints.forEach((e)=>{
-                let pI=plane[planeI];
-                let power=p.pow(10,planeP)
-                let sc=pI*power;
-                p.fill(84,140,140)
-                p.stroke(0,200)
-                p.circle(e[0]*square/sc+originX,-e[1]*square/sc+originY,12)
-                console.log("----------------------------------------");
-                console.log(endpoints);
-                
-                
-            })
-            
         }else{
-            if (drawMode){
-                draw()
+            p.circle(p.mouseX,p.mouseY,10)
+            if (reDraw){
+                pg.clear()
+                pg.noStroke()
+                let pI=plane[planeI]
+                let power=p.pow(10,planeP);
+                let sc=pI*power;
+                for (let i=0;i<data.length;i++){
+                    pg.circle(data[i][0]*square/sc+originX,-data[i][1]/sc*square+originY,10)
+                }
+                reDraw=false;
             }
-            p.image(pg,0,0)
         }
-        // }else{
-            // }
+
+
+
+        p.image(pg,0,0)
         
     }
-    p.mouseClicked=()=>{
-        let pI=plane[planeI];
-        let power=p.pow(10,planeP)
-        let sc=pI*power;
-        if (endpoints.length<2&&selectMode){
-            endpoints.push([(p.mouseX-originX)*sc/square,(originY-p.mouseY)*sc/square])
-        }        
+    p.mouseClicked=async ()=>{
+
+        if (drawMode){
+            let pI=plane[planeI];
+            let power=p.pow(10,planeP)
+            let sc=pI*power;
+            if (data.length>=1){
+                if (p.mouseX>(data[data.length-1][0]*square/sc+originX)){
+                    data.push([(p.mouseX-originX)*sc/square,(originY-p.mouseY)*sc/square])
+                    let dataX=await new webR.RObject(data.map((e)=>e[0]))  
+                    let dataY=await new webR.RObject(data.map((e)=>e[1]))  
+                    
+                    let r=await ddiv.exec(dataX,dataY) as RDouble;
+                    poly = await r.toArray() as number[]
+                    
+                    reDraw=true
+                }
+            }else{
+                data.push([(p.mouseX-originX)*sc/square,(originY-p.mouseY)*sc/square])
+                let dataX=await new webR.RObject([data[0][0]])
+                let dataY=await new webR.RObject([data[0][1]])  
+
+                let r=await ddiv.exec(dataX,dataY) as RDouble;
+                poly = await r.toArray() as number[];
+
+                reDraw=true;
+            }
+        }
+              
     } 
 
-    p.mouseReleased =()=>{
-        if (drawMode){
-            done=true;
-            drawMode=false;
-        }
-    }
     p.mouseWheel=(e:any)=>{
     // let mouseWheel=(e:any)=>{
         reDraw=true;
@@ -355,17 +374,17 @@ let p=new p5((p:p5) =>{
                 }
              }  
     } 
-    p.keyPressed=(e:any)=>{
+    p.keyPressed= async (e:any)=>{
         
         if (e.key==="d"){
-            if (!done){
-                drawMode=!drawMode;
-            }else{
-                drawMode=false;
-            }
-        }else if(e.key==="s"&&done){
-            selectMode=!selectMode;
+            drawMode=!drawMode
+            reDraw=true;
+        }else if (e.key ==="i"&&data.length>=2){
+            let re=await webR.evalR("Simpson(1)") as RDouble;
+            console.log(`the area is: ${await re.toNumber()}`)
+
         }
+        
         
     }  
 })
