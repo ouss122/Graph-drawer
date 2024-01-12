@@ -6,13 +6,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vite + TS</title>
   </head>
-  <body class="bg-[#242424] w-screen h-screen">
+  <body class="bg-[#242424] w-screen h-screen flex">
     <div id="loading" class="hidden">
       Loading R .............
     </div>
-    <div class="w-[80%] h-full" id="app">
-
+    <div class="border-r border-[#68696a] bg-[#181a1b] h-full flex-1 text-[#e8e6e3] font-mono ">
+      <h1 id="modes" class="cursor-pointer select-none ml-auto w-fit p-1 px-2">Hand mode</h1>
+      <div class="p-4">
+        <h1 class="font-medium text-2xl">Area:</h1>
+        <div class="px-2 py-4">
+          <div class="flex justify-between">
+            <h1 class="text-xl">Simpson:</h1>
+            <div class="flex ">
+              <h1>n=</h1>
+              <input value="1" id="Simpson_counter" class="w-[75px] appearance-none px-1 outline-none bg-transparent border border-[#68696a]" type="number" min="1">
+            </div>
+          </div>
+          <div class="py-2 px-4">
+            <h1 class="">result= <span id="Simpson_result">0</span></h1>
+          </div>
+      </div>
+      <div class="px-2 py-4">
+        <div class="flex justify-between">
+          <h1 class="text-xl">Trapeze:</h1>
+          <div class="flex ">
+            <h1>n=</h1>
+            <input value="1" id="Trapeze_counter" class="w-[75px] appearance-none px-1 outline-none bg-transparent border border-[#68696a]" type="number" min="1">
+          </div>
+        </div>
+        <div class="py-2 px-4">
+          <h1>result= <span id="Trapeze_result">0</span></h1>
+        </div>
+      </div>
     </div>
+    <hr class="border-[#68696a7c]">
+    <div class="p-4 text-lg space-y-10">
+      <h1 id="largange" class="py-3 px-2 border-l-2 disabled border-[#68696a] select-none cursor-pointer hover:bg-[#ffffff23]">Interpolation de largange</h1>
+      <h1 id="diviser" class="py-3 px-2 border-l-2 border-[#68696a] select-none cursor-pointer hover:bg-[#ffffff23]">Difference divise</h1>
+      <div id="finie" class="py-3 px-2 border-l-2 disabled border-[#68696a] select-none cursor-pointer hover:bg-[#ffffff23]">Difference finies
+        <h1 class="text-sm px-2">still need some work</h1>
+      </div>
+    </div>
+    </div>
+    
+    <div class="w-[65%] h-full" id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

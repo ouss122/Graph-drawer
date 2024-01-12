@@ -4,10 +4,58 @@ import p5 from "p5";
 
 import { RDouble, RFunction, RObject, WebR } from 'webr';
 
+let reDraw=false;
+let data: number[][]=[];
+let drawMode=false;
+let poly: number[]=[]
 const element=document.querySelector("#app")
 const loading=document.querySelector("#loading")
+const modes=document.querySelector("#modes");
+const simpson_counter=document.querySelector("#Simpson_counter") as HTMLInputElement;
+const simpson_result=document.querySelector("#Simpson_result") as HTMLSpanElement;
+const trapeze_counter=document.querySelector("#Trapeze_counter") as HTMLInputElement;
+const trapeze_result=document.querySelector("#Trapeze_result") as HTMLSpanElement
+
+async function updateResultS(){
+    // console.log(n);
+    if (poly.length>=1){
+        let n=simpson_counter.valueAsNumber;
+        if (!isNaN(n)){
+            let re=await webR.evalR(`Simpson(${n})`) as RDouble;
+            // console.log(`the area is: ${await re.toNumber()}`)
+            
+            simpson_result.innerHTML=(await re.toNumber()).toString();
+        }
+    }
+}
+
+async function updateResultT(){
+    // console.log(n);
+    if (data.length>=2){
+        let n=trapeze_counter.valueAsNumber;
+        if (!isNaN(n)){
+            let re=await webR.evalR(`Trapeze(${n})`) as RDouble;
+            // console.log(re.toNumber);
+            
+            // console.log(`the area is: ${await re.toNumber()}`)
+            trapeze_result.innerHTML=(await re.toNumber()).toString();
+        }
+    }
+}
+
+simpson_counter.addEventListener("change",()=>{
+    updateResultS()
+})
+
+trapeze_counter.addEventListener("change",()=>{
+    updateResultT()
+})
+
+
 
 loading?.classList.remove("hidden")
+
+
 
 const webR = new WebR();
 
@@ -23,12 +71,28 @@ let  ddiv=await webR.evalR('difference_diviseP1') as RFunction;
 
 // console.log(await prt("hello world"));
 
+
+
 loading?.classList.add("hidden")
+
+function updateModes(){
+    if (!drawMode){
+        drawMode=true;
+        modes!.innerHTML="Draw mode";
+    }else{
+        drawMode=false;
+        modes!.innerHTML="Hand mode";
+    }
+    reDraw=true;
+}
+
+
+modes?.addEventListener("click",()=>{
+    updateModes();
+})
 
 
 let p=new p5((p:p5) =>{
-    let data: number[][]=[];
-    let poly: number[]=[]
     const plane=[1,5,2]
     let planeI=0;
     let planeP=0;
@@ -43,8 +107,6 @@ let p=new p5((p:p5) =>{
     let pg:p5.Graphics;
     let width=p.width;
     let height=p.height;
-    let drawMode=false;
-    let reDraw=false;
 
 
     function calcPoly(x:number){
@@ -163,7 +225,7 @@ let p=new p5((p:p5) =>{
     }
     function drawPlane(){
 
-        if (p.mouseIsPressed&&!drawMode){
+        if (p.mouseIsPressed&&!drawMode&&p.mouseX>0){
             reDraw=true;
             originX+=(p.mouseX-p.pmouseX);
             originY+=(p.mouseY-p.pmouseY);
@@ -226,7 +288,7 @@ let p=new p5((p:p5) =>{
                     let step=(data[data.length-1][0]-data[0][0])/100
                     let x0=data[0][0];
 
-                    console.log(poly);
+                    // console.log(poly);
                     
 
                     for (let i=0;i<100;i++){
@@ -261,29 +323,37 @@ let p=new p5((p:p5) =>{
     }
     p.mouseClicked=async ()=>{
 
-        if (drawMode){
+        
+        if (drawMode&&p.mouseX>0){
             let pI=plane[planeI];
             let power=p.pow(10,planeP)
             let sc=pI*power;
             if (data.length>=1){
                 if (p.mouseX>(data[data.length-1][0]*square/sc+originX)){
                     data.push([(p.mouseX-originX)*sc/square,(originY-p.mouseY)*sc/square])
+                    console.log(data);
+                    
+                    
                     let dataX=await new webR.RObject(data.map((e)=>e[0]))  
                     let dataY=await new webR.RObject(data.map((e)=>e[1]))  
                     
                     let r=await ddiv.exec(dataX,dataY) as RDouble;
                     poly = await r.toArray() as number[]
                     
+                    updateResultS();
+                    updateResultT();
+                    
                     reDraw=true
                 }
             }else{
                 data.push([(p.mouseX-originX)*sc/square,(originY-p.mouseY)*sc/square])
+                
                 let dataX=await new webR.RObject([data[0][0]])
                 let dataY=await new webR.RObject([data[0][1]])  
 
                 let r=await ddiv.exec(dataX,dataY) as RDouble;
                 poly = await r.toArray() as number[];
-
+                
                 reDraw=true;
             }
         }
@@ -291,99 +361,99 @@ let p=new p5((p:p5) =>{
     } 
 
     p.mouseWheel=(e:any)=>{
-    // let mouseWheel=(e:any)=>{
-        reDraw=true;
-        if (e.deltaY>0){
-            
-                originX-=scaleFactor*(p.mouseX-originX)/square
-                originY-=scaleFactor*(p.mouseY-originY)/square
-                square+=scaleFactor;
-                
+        if (p.mouseX>0){
+            reDraw=true;
+            if (e.deltaY>0){
+                    originX-=scaleFactor*(p.mouseX-originX)/square
+                    originY-=scaleFactor*(p.mouseY-originY)/square
+                    square+=scaleFactor;
             }else if (e.deltaY<0){
-                // if (square===dSquare){
-                //     if (planeI===plane.length-1){
-                //         originX+=((p.mouseX-originX)/4)
-                //         originY+=((p.mouseY-originY)/4)
-                //     }
-                // }
-                // 
-                if (square===dSquare){
-                    originX+=scaleFactor*((p.mouseX-originX)/(square*2))
-                    originY+=scaleFactor*((p.mouseY-originY)/(square*2))
-                }else{
-                    originX+=scaleFactor*((p.mouseX-originX)/(square))
-                    originY+=scaleFactor*((p.mouseY-originY)/(square))
-                }
-                square-=scaleFactor;
-            }
-            
-            if (square===dSquare*2){
-              
-              if (planeI===1){
-                  originX-=((p.mouseX-originX)/4)
-                  originY-=((p.mouseY-originY)/4)
-
-                }
-                // else{
-                  // originX-=scaleFactor*(p.mouseX-originX)/square
-                // }
-                square=dSquare
-
-                // console.log("-------------------------------------");
-                // console.log(p.mouseX);
-                // console.log(originX);
-                
-                // console.log(scaleFactor*(p.mouseX-originX)/square);
-                
-                if (planeI===0){
-                    planeP--;
-                    // scale+=1;
-                    
-                }
-
-                if (planeI===plane.length-1){
-                    planeI=0;
-                }else{
-                    planeI++;
-                }
-            }
-            if (square<dSquare){
-                if(planeI===plane.length-1){
-            //   //   //   console.log("hello");
-                  
-                  originX+=((p.mouseX-originX)/5)
-                  originY+=((p.mouseY-originY)/5)
-               }            
-            
-
-                square=dSquare*2-scaleFactor;
-                
-                if (planeI===0){
-                    planeI=plane.length-1;
-                }else{
-                    planeI--;
-                }
-
-                if (planeI===0){
-                    planeP++;
-                    // if (scale<=1){
-                    //     scale-=0.5;
-                    // }else{
-                    //     scale-=1
+                    // if (square===dSquare){
+                    //     if (planeI===plane.length-1){
+                    //         originX+=((p.mouseX-originX)/4)
+                    //         originY+=((p.mouseY-originY)/4)
+                    //     }
                     // }
+                    // 
+                    if (square===dSquare){
+                        originX+=scaleFactor*((p.mouseX-originX)/(square*2))
+                        originY+=scaleFactor*((p.mouseY-originY)/(square*2))
+                    }else{
+                        originX+=scaleFactor*((p.mouseX-originX)/(square))
+                        originY+=scaleFactor*((p.mouseY-originY)/(square))
+                    }
+                    square-=scaleFactor;
                 }
-             }  
+                
+                if (square===dSquare*2){
+                  
+                  if (planeI===1){
+                      originX-=((p.mouseX-originX)/4)
+                      originY-=((p.mouseY-originY)/4)
+    
+                    }
+                    // else{
+                      // originX-=scaleFactor*(p.mouseX-originX)/square
+                    // }
+                    square=dSquare
+    
+                    // console.log("-------------------------------------");
+                    // console.log(p.mouseX);
+                    // console.log(originX);
+                    
+                    // console.log(scaleFactor*(p.mouseX-originX)/square);
+                    
+                    if (planeI===0){
+                        planeP--;
+                        // scale+=1;
+                        
+                    }
+    
+                    if (planeI===plane.length-1){
+                        planeI=0;
+                    }else{
+                        planeI++;
+                    }
+                }
+                if (square<dSquare){
+                    if(planeI===plane.length-1){
+                //   //   //   console.log("hello");
+                      
+                      originX+=((p.mouseX-originX)/5)
+                      originY+=((p.mouseY-originY)/5)
+                   }            
+                
+    
+                    square=dSquare*2-scaleFactor;
+                    
+                    if (planeI===0){
+                        planeI=plane.length-1;
+                    }else{
+                        planeI--;
+                    }
+    
+                    if (planeI===0){
+                        planeP++;
+                        // if (scale<=1){
+                        //     scale-=0.5;
+                        // }else{
+                        //     scale-=1
+                        // }
+                    }
+                 }  
+        }
     } 
     p.keyPressed= async (e:any)=>{
         
         if (e.key==="d"){
-            drawMode=!drawMode
-            reDraw=true;
-        }else if (e.key ==="i"&&data.length>=2){
-            let re=await webR.evalR("Simpson(1)") as RDouble;
-            console.log(`the area is: ${await re.toNumber()}`)
-
+            updateModes()
         }
+        // else if (e.key ==="i"&&data.length>=2){
+            // updateResultS()
+            // let re=await webR.evalR("Simpson(1)") as RDouble;
+            // console.log(`the area is: ${await re.toNumber()}`)
+
+        // }
         
         
     }  
