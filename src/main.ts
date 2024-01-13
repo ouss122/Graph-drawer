@@ -7,8 +7,10 @@ let reDraw=false;
 let data: number[][]=[];
 let drawMode=false;
 let poly: number[]=[];
+let poly_finie: number[]=[];
 let polynom:number[]=[];
 let method=1;
+let space_x:number=1;
 const element=document.querySelector("#app")
 const loading=document.querySelector("#loading")
 const modes=document.querySelector("#modes");
@@ -19,6 +21,7 @@ const trapeze_result=document.querySelector("#Trapeze_result") as HTMLSpanElemen
 const lagrange_m=document.querySelector("#largange");
 const diviser_m=document.querySelector("#diviser");
 const finie_m=document.querySelector("#finie");
+const finite_pas=document.querySelector("#finie_pas") as HTMLInputElement
 
 // console.log(Algebrite.run("x-(-x)"));
 
@@ -49,18 +52,38 @@ diviser_m?.addEventListener("click",()=>{
         updateResultT();
     }
 })
-finie_m?.addEventListener("click",()=>{
+finie_m?.addEventListener("click",async ()=>{
     if (method!=2){
         method=2;
         finie_m?.classList.remove("disabled");
         diviser_m?.classList.add("disabled");
         lagrange_m?.classList.add("disabled");
-        data=[]
+        if (data.length>1){
+            await webR.evalR("reset_poly()")
+            data=[];
+            poly=[];
+            poly_finie=[]; // check 
+        }
+
         reDraw=true;
         updateResultS();
         updateResultT();
     }
 })
+
+finite_pas?.addEventListener("change",async ()=>{
+    space_x=finite_pas.valueAsNumber;
+    if (method===2){
+        reDraw=true;
+        if (data.length>1){
+            await webR.evalR("reset_poly()")
+            data=[];
+            poly=[];
+            poly_finie=[];
+        }
+    }
+})
+
 
 function lagrange(x:number){
     let dx=data.map((e)=>e[0]);
@@ -96,7 +119,6 @@ async function getPolynom(dx:number[]){
             polynom.push(d)
         }   
     }
-    console.log(polynom);
 }
 async function updateResultS(){
     
@@ -114,7 +136,6 @@ async function updateResultS(){
 }
 
 async function updateResultT(){
-    // console.log(n);
     if (data.length>=2){
         trapeze_result.innerHTML="calc...."
         let n=trapeze_counter.valueAsNumber;
@@ -151,11 +172,10 @@ let rFunction=await fetch("/R/script.r");
 
 webR.evalR(await rFunction.text())
 
-let  ddiv=await webR.evalR('difference_diviseP1') as RFunction;
+let ddiv=await webR.evalR('difference_diviseP1') as RFunction;
+let dfinie=await webR.evalR('difference_finieP1') as RFunction;
 
 let set_data=await webR.evalR('set_data') as RFunction;
-
-// console.log(await prt("hello world"));
 
 
 
@@ -195,6 +215,23 @@ let p=new p5((p:p5) =>{
     let height=p.height;
 
 
+    function calcPoly_finie(x:number){
+        if (poly_finie.length>0){
+            let y=poly_finie[0]
+            let dataX=data.map((e)=>e[0]);
+            for (let i=1;i<poly_finie.length;i++){
+                let k=1;
+                for (let j=0;j<i;j++){
+                    k*=(x-dataX[j])
+                }
+                y+=k*poly_finie[i];
+            }
+
+            return y;
+        }
+        return 0
+    }
+
     function calcPoly(x:number){
         if (method===1){
             if (poly.length>=1){
@@ -211,7 +248,10 @@ let p=new p5((p:p5) =>{
             }
         }else if (method===0){
             return lagrange(x);
+        }else if (method===2){
+            return calcPoly_finie(x)
         }
+
         return 0;
     }
 
@@ -371,13 +411,13 @@ let p=new p5((p:p5) =>{
                 let pI=plane[planeI]
                 let power=p.pow(10,planeP);
                 let sc=pI*power;
+                
                 if (poly.length>1){                    
                     let step=(data[data.length-1][0]-data[0][0])/100
                     let x0=data[0][0];
 
                     // console.log(poly);
                     
-
                     for (let i=0;i<100;i++){
                         let x=(x0+step*i)*square/sc+originX
                         let x1=(x0+step*(i+1))*square/sc+originX
@@ -389,60 +429,80 @@ let p=new p5((p:p5) =>{
                 reDraw=false;
             }
         }else{
-            p.circle(p.mouseX,p.mouseY,10)
+            let pI=plane[planeI]
+            let power=p.pow(10,planeP);
+            let sc=pI*power;
+            if (data.length>=1){
+                if (method===2){
+                    p.circle((data[data.length-1][0]+space_x)*square/sc+originX,p.mouseY,10)
+                }else{
+                    p.circle(p.mouseX,p.mouseY,10)
+                }
+            }else{
+                p.circle(p.mouseX,p.mouseY,10)
+
+            }
             if (reDraw){
                 pg.clear()
                 pg.noStroke()
-                let pI=plane[planeI]
-                let power=p.pow(10,planeP);
-                let sc=pI*power;
                 for (let i=0;i<data.length;i++){
                     pg.circle(data[i][0]*square/sc+originX,-data[i][1]/sc*square+originY,10)
                 }
                 reDraw=false;
             }
         }
-
-
-
         p.image(pg,0,0)
         
     }
     p.mouseClicked=async ()=>{
 
-        
         if (drawMode&&p.mouseX>0){
             let pI=plane[planeI];
             let power=p.pow(10,planeP)
             let sc=pI*power;
             if (data.length>=1){
                 if (p.mouseX>(data[data.length-1][0]*square/sc+originX)){
-                    data.push([(p.mouseX-originX)*sc/square,(originY-p.mouseY)*sc/square])
+                    if (method===2){
+                        data.push([data[data.length-1][0]+space_x,(originY-p.mouseY)*sc/square])
+                    }else{
+                        data.push([(p.mouseX-originX)*sc/square,(originY-p.mouseY)*sc/square])
+                    }
                     let dx=data.map((e)=>e[0]);
                     let dataX=await new webR.RObject(dx)  
                     let dataY=await new webR.RObject(data.map((e)=>e[1]))  
                     
                     let r=await ddiv.exec(dataX,dataY) as RDouble;
-                    poly = await r.toArray() as number[]
-
+                    poly = await r.toArray() as number[];
+                    
+                    if (method===2){              
+                        let re=await dfinie.exec(dataX,dataY,space_x) as RDouble;
+                        // console.log("hello");
+                        
+                        // console.log(await re.toArray() as number[]);
+                        
+                        poly_finie= await re.toArray() as number[];
+                    }
                     // if (method===1){
                             // getPolynom(dx)
                         
-                        updateResultS();
-                        updateResultT();
+                    updateResultS();
+                    updateResultT();
                     // }   
                     reDraw=true
                 }
             }else{
                 data.push([(p.mouseX-originX)*sc/square,(originY-p.mouseY)*sc/square])
                 
-                let dataX=await new webR.RObject([data[0][0]])
-                let dataY=await new webR.RObject([data[0][1]])  
+                // let dataX=await new webR.RObject([data[0][0]])
+                // let dataY=await new webR.RObject([data[0][1]])  
 
-                let r=await ddiv.exec(dataX,dataY) as RDouble;
-                poly = await r.toArray() as number[];
+                // let r=await ddiv.exec(dataX,dataY) as RDouble;
+                // poly = await r.toArray() as number[];
+                poly = [data[0][1]];
+                poly_finie=[data[0][1]];
+
                 // polynom=`${poly[0]}`
-                polynom.push(poly[0])
+                // polynom.push(poly[0])
                 reDraw=true;
             }
         }
