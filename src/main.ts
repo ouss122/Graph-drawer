@@ -1,13 +1,14 @@
-
 import p5 from "p5";
+import Algebrite from "algebrite"
 
-
-import { RDouble, RFunction, RObject, WebR } from 'webr';
+import { RDouble, RFunction, WebR } from 'webr';
 
 let reDraw=false;
 let data: number[][]=[];
 let drawMode=false;
-let poly: number[]=[]
+let poly: number[]=[];
+let polynom:number[]=[];
+let method=1;
 const element=document.querySelector("#app")
 const loading=document.querySelector("#loading")
 const modes=document.querySelector("#modes");
@@ -15,31 +16,114 @@ const simpson_counter=document.querySelector("#Simpson_counter") as HTMLInputEle
 const simpson_result=document.querySelector("#Simpson_result") as HTMLSpanElement;
 const trapeze_counter=document.querySelector("#Trapeze_counter") as HTMLInputElement;
 const trapeze_result=document.querySelector("#Trapeze_result") as HTMLSpanElement
+const lagrange_m=document.querySelector("#largange");
+const diviser_m=document.querySelector("#diviser");
+const finie_m=document.querySelector("#finie");
 
+// console.log(Algebrite.run("x-(-x)"));
+
+lagrange_m?.addEventListener("click",async()=>{
+    if (method!==0){
+        method=0;
+        lagrange_m.classList.remove("disabled");
+        diviser_m?.classList.add("disabled");
+        finie_m?.classList.add("disabled");
+
+        let dataX=await new webR.RObject(data.map((e)=>e[0]))  
+        let dataY=await new webR.RObject(data.map((e)=>e[1]))
+        await set_data.exec(dataX,dataY);
+
+        reDraw=true;
+        updateResultS();
+        updateResultT();
+    }
+});
+diviser_m?.addEventListener("click",()=>{
+    if (method!==1){
+        method=1;
+        diviser_m?.classList.remove("disabled");
+        lagrange_m?.classList.add("disabled");
+        finie_m?.classList.add("disabled");
+        reDraw=true;
+        updateResultS();
+        updateResultT();
+    }
+})
+finie_m?.addEventListener("click",()=>{
+    if (method!=2){
+        method=2;
+        finie_m?.classList.remove("disabled");
+        diviser_m?.classList.add("disabled");
+        lagrange_m?.classList.add("disabled");
+        data=[]
+        reDraw=true;
+        updateResultS();
+        updateResultT();
+    }
+})
+
+function lagrange(x:number){
+    let dx=data.map((e)=>e[0]);
+    let dy=data.map((e)=>e[1]);
+    let re=0;
+    for(let i=0;i<dx.length;i++){
+        let k=dy[i];
+        for (let j=0;j<dx.length;j++){
+            if (i!=j){
+                k*=(x-dx[j])/(dx[i]-dx[j])
+            }
+        }
+        re+=k;
+    }
+    return re;
+
+}
+
+async function getPolynom(dx:number[]){
+
+    await new Promise(r => setTimeout(r, 0));
+    let k=`(x-(${dx[0].toFixed(2)}))`;
+                    
+    for (let i=1;i<dx.length-1;i++){
+        k+=`*(x-(${dx[i].toFixed(2)}))`
+    }
+    // console.log(k);
+    for (let i=0;i<dx.length;i++){
+        let d=Algebrite.coeff(Algebrite.simplify(`${k}`),i).d
+        if (i<polynom.length){
+            polynom[i]+=d;
+        }else{
+            polynom.push(d)
+        }   
+    }
+    console.log(polynom);
+}
 async function updateResultS(){
-    // console.log(n);
-    if (poly.length>=1){
+    
+    if (data.length>=2){
+        simpson_result.innerHTML="calc...."
         let n=simpson_counter.valueAsNumber;
         if (!isNaN(n)){
-            let re=await webR.evalR(`Simpson(${n})`) as RDouble;
-            // console.log(`the area is: ${await re.toNumber()}`)
+            let re=await webR.evalR(`Simpson(${n},${method})`) as RDouble;
             
             simpson_result.innerHTML=(await re.toNumber()).toString();
         }
+    }else{
+        simpson_result.innerHTML="0"
     }
 }
 
 async function updateResultT(){
     // console.log(n);
     if (data.length>=2){
+        trapeze_result.innerHTML="calc...."
         let n=trapeze_counter.valueAsNumber;
         if (!isNaN(n)){
-            let re=await webR.evalR(`Trapeze(${n})`) as RDouble;
-            // console.log(re.toNumber);
-            
-            // console.log(`the area is: ${await re.toNumber()}`)
+            let re=await webR.evalR(`Trapeze(${n},${method})`) as RDouble;
             trapeze_result.innerHTML=(await re.toNumber()).toString();
         }
+    }else{
+        trapeze_result.innerHTML="0";
     }
 }
 
@@ -68,6 +152,8 @@ let rFunction=await fetch("/R/script.r");
 webR.evalR(await rFunction.text())
 
 let  ddiv=await webR.evalR('difference_diviseP1') as RFunction;
+
+let set_data=await webR.evalR('set_data') as RFunction;
 
 // console.log(await prt("hello world"));
 
@@ -110,20 +196,21 @@ let p=new p5((p:p5) =>{
 
 
     function calcPoly(x:number){
-        if (poly.length>=1){
-            let y=poly[0]
-            let dataX=data.map((e)=>e[0]);
-            for (let i=1;i<poly.length;i++){
-                
-                let k=1;
-                for (let j=0;j<i;j++){
-                    k*=(x-dataX[j])
+        if (method===1){
+            if (poly.length>=1){
+                let y=poly[0]
+                let dataX=data.map((e)=>e[0]);
+                for (let i=1;i<poly.length;i++){
+                    let k=1;
+                    for (let j=0;j<i;j++){
+                        k*=(x-dataX[j])
+                    }
+                    y+=poly[i]*k   
                 }
-                
-                y+=poly[i]*k
-                
+                return y;
             }
-            return y;
+        }else if (method===0){
+            return lagrange(x);
         }
         return 0;
     }
@@ -331,18 +418,19 @@ let p=new p5((p:p5) =>{
             if (data.length>=1){
                 if (p.mouseX>(data[data.length-1][0]*square/sc+originX)){
                     data.push([(p.mouseX-originX)*sc/square,(originY-p.mouseY)*sc/square])
-                    console.log(data);
-                    
-                    
-                    let dataX=await new webR.RObject(data.map((e)=>e[0]))  
+                    let dx=data.map((e)=>e[0]);
+                    let dataX=await new webR.RObject(dx)  
                     let dataY=await new webR.RObject(data.map((e)=>e[1]))  
                     
                     let r=await ddiv.exec(dataX,dataY) as RDouble;
                     poly = await r.toArray() as number[]
-                    
-                    updateResultS();
-                    updateResultT();
-                    
+
+                    // if (method===1){
+                            // getPolynom(dx)
+                        
+                        updateResultS();
+                        updateResultT();
+                    // }   
                     reDraw=true
                 }
             }else{
@@ -353,7 +441,8 @@ let p=new p5((p:p5) =>{
 
                 let r=await ddiv.exec(dataX,dataY) as RDouble;
                 poly = await r.toArray() as number[];
-                
+                // polynom=`${poly[0]}`
+                polynom.push(poly[0])
                 reDraw=true;
             }
         }

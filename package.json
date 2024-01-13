@@ -17,6 +17,9 @@
     "vite": "^5.0.8"
   },
   "dependencies": {
+    "algebra.js": "^0.2.6",
+    "algebrite": "^1.4.0",
+    "mathjs": "^12.3.0",
     "p5": "^1.9.0",
     "webr": "^0.2.2"
   }
