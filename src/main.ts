@@ -1,5 +1,4 @@
 import p5 from "p5";
-import Algebrite from "algebrite"
 
 import { RDouble, RFunction, WebR } from 'webr';
 
@@ -8,11 +7,12 @@ let data: number[][]=[];
 let drawMode=false;
 let poly: number[]=[];
 let poly_finie: number[]=[];
-let polynom:number[]=[];
 let method=1;
 let space_x:number=1;
 const element=document.querySelector("#app")
 const loading=document.querySelector("#loading")
+const clearButton=document.querySelector("#clear")
+const logic=document.querySelector("#logic")
 const modes=document.querySelector("#modes");
 const simpson_counter=document.querySelector("#Simpson_counter") as HTMLInputElement;
 const simpson_result=document.querySelector("#Simpson_result") as HTMLSpanElement;
@@ -23,7 +23,20 @@ const diviser_m=document.querySelector("#diviser");
 const finie_m=document.querySelector("#finie");
 const finite_pas=document.querySelector("#finie_pas") as HTMLInputElement
 
-// console.log(Algebrite.run("x-(-x)"));
+
+async function clear(){
+    await webR.evalR("reset_poly()")
+    data=[];
+    poly=[];
+    poly_finie=[];
+}
+
+clearButton?.addEventListener("click",async ()=>{
+    await clear()
+    reDraw=true;
+    updateResultS();
+    updateResultT();
+})
 
 lagrange_m?.addEventListener("click",async()=>{
     if (method!==0){
@@ -58,11 +71,8 @@ finie_m?.addEventListener("click",async ()=>{
         finie_m?.classList.remove("disabled");
         diviser_m?.classList.add("disabled");
         lagrange_m?.classList.add("disabled");
-        if (data.length>1){
-            await webR.evalR("reset_poly()")
-            data=[];
-            poly=[];
-            poly_finie=[]; // check 
+        if (data.length>1){ 
+            await clear();
         }
 
         reDraw=true;
@@ -74,13 +84,10 @@ finie_m?.addEventListener("click",async ()=>{
 finite_pas?.addEventListener("change",async ()=>{
     space_x=finite_pas.valueAsNumber;
     if (method===2){
-        reDraw=true;
         if (data.length>1){
-            await webR.evalR("reset_poly()")
-            data=[];
-            poly=[];
-            poly_finie=[];
+            await clear();
         }
+        reDraw=true;
     }
 })
 
@@ -102,24 +109,6 @@ function lagrange(x:number){
 
 }
 
-async function getPolynom(dx:number[]){
-
-    await new Promise(r => setTimeout(r, 0));
-    let k=`(x-(${dx[0].toFixed(2)}))`;
-                    
-    for (let i=1;i<dx.length-1;i++){
-        k+=`*(x-(${dx[i].toFixed(2)}))`
-    }
-    // console.log(k);
-    for (let i=0;i<dx.length;i++){
-        let d=Algebrite.coeff(Algebrite.simplify(`${k}`),i).d
-        if (i<polynom.length){
-            polynom[i]+=d;
-        }else{
-            polynom.push(d)
-        }   
-    }
-}
 async function updateResultS(){
     
     if (data.length>=2){
@@ -161,7 +150,6 @@ trapeze_counter.addEventListener("change",()=>{
 loading?.classList.remove("hidden")
 
 
-
 const webR = new WebR();
 
 
@@ -177,9 +165,9 @@ let dfinie=await webR.evalR('difference_finieP1') as RFunction;
 
 let set_data=await webR.evalR('set_data') as RFunction;
 
-
-
 loading?.classList.add("hidden")
+logic?.classList.remove("hidden")
+
 
 function updateModes(){
     if (!drawMode){
@@ -198,7 +186,7 @@ modes?.addEventListener("click",()=>{
 })
 
 
-let p=new p5((p:p5) =>{
+new p5((p:p5) =>{
     const plane=[1,5,2]
     let planeI=0;
     let planeP=0;
@@ -276,59 +264,6 @@ let p=new p5((p:p5) =>{
             }
         }
     }
-
-    /*
-    function draw(){
-        pg.stroke(219,118,117)
-        pg.strokeWeight(2)
-        if (p.mouseIsPressed){
-                if (mouseX===-10){
-                    mouseX=p.mouseX
-                    mouseY=p.mouseY
-                    pmouseX=p.pmouseX;
-                    pmouseY=p.pmouseY;
-                }
-                if (p.mouseX>p.pmouseX){
-                    pmouseX=mouseX;
-                    mouseX+=(p.mouseX-p.pmouseX)*0.8;
-                    pmouseY=mouseY
-                    mouseY+=(p.mouseY-p.pmouseY)*0.8;
-                }
-                let pI=plane[planeI];
-                let power=p.pow(10,planeP)
-                let sc=pI*power;
-                if (data.length>=1){
-                    if (mouseX!==(data[data.length-1][0]*square/sc+originX)|| mouseY!== (-(data[data.length-1][1]*square/sc)+originY)){
-                        pg.line(mouseX,mouseY,pmouseX,pmouseY);          
-                        data.push([(mouseX-originX)*sc/square,(originY-mouseY)*sc/square])
-                    }
-                }else{
-                    pg.line(mouseX,mouseY,pmouseX,pmouseY);
-                    data.push([(mouseX-originX)*sc/square,(originY-mouseY)*sc/square])
-                }
-                // console.log(data);
-                
-                // if (data.length>1){
-                    // if (data[data.length-1][0]!==mouseX || data[data.length-1][1]!==mouseY){
-                        // console.log("hello");
-                        
-                    // }
-                // }
-                
-
-        }else{
-            mouseX=p.mouseX
-            pmouseX=p.pmouseX;
-            pmouseY=p.pmouseY;
-            mouseY=p.mouseY
-        }
-
-        // p.scale(2)
-        p.circle(mouseX,mouseY,5)
-        p.image(pg,0,0)
-        p.fill(153,153,153)
-    }
-    */
 
     function drawSmallSquares(pSquareX:number,pSquareY:number){
         let smallSquare=square/smallSquaresCount;
@@ -461,7 +396,7 @@ let p=new p5((p:p5) =>{
             let power=p.pow(10,planeP)
             let sc=pI*power;
             if (data.length>=1){
-                if (p.mouseX>(data[data.length-1][0]*square/sc+originX)){
+                if (p.mouseX>(data[data.length-1][0]*square/sc+originX)||method===2){
                     if (method===2){
                         data.push([data[data.length-1][0]+space_x,(originY-p.mouseY)*sc/square])
                     }else{
@@ -476,33 +411,20 @@ let p=new p5((p:p5) =>{
                     
                     if (method===2){              
                         let re=await dfinie.exec(dataX,dataY,space_x) as RDouble;
-                        // console.log("hello");
-                        
-                        // console.log(await re.toArray() as number[]);
                         
                         poly_finie= await re.toArray() as number[];
                     }
-                    // if (method===1){
-                            // getPolynom(dx)
                         
                     updateResultS();
                     updateResultT();
-                    // }   
                     reDraw=true
                 }
             }else{
                 data.push([(p.mouseX-originX)*sc/square,(originY-p.mouseY)*sc/square])
                 
-                // let dataX=await new webR.RObject([data[0][0]])
-                // let dataY=await new webR.RObject([data[0][1]])  
-
-                // let r=await ddiv.exec(dataX,dataY) as RDouble;
-                // poly = await r.toArray() as number[];
                 poly = [data[0][1]];
                 poly_finie=[data[0][1]];
 
-                // polynom=`${poly[0]}`
-                // polynom.push(poly[0])
                 reDraw=true;
             }
         }
@@ -517,13 +439,6 @@ let p=new p5((p:p5) =>{
                     originY-=scaleFactor*(p.mouseY-originY)/square
                     square+=scaleFactor;
             }else if (e.deltaY<0){
-                    // if (square===dSquare){
-                    //     if (planeI===plane.length-1){
-                    //         originX+=((p.mouseX-originX)/4)
-                    //         originY+=((p.mouseY-originY)/4)
-                    //     }
-                    // }
-                    // 
                     if (square===dSquare){
                         originX+=scaleFactor*((p.mouseX-originX)/(square*2))
                         originY+=scaleFactor*((p.mouseY-originY)/(square*2))
@@ -541,20 +456,11 @@ let p=new p5((p:p5) =>{
                       originY-=((p.mouseY-originY)/4)
     
                     }
-                    // else{
-                      // originX-=scaleFactor*(p.mouseX-originX)/square
-                    // }
                     square=dSquare
     
-                    // console.log("-------------------------------------");
-                    // console.log(p.mouseX);
-                    // console.log(originX);
-                    
-                    // console.log(scaleFactor*(p.mouseX-originX)/square);
                     
                     if (planeI===0){
                         planeP--;
-                        // scale+=1;
                         
                     }
     
@@ -565,9 +471,7 @@ let p=new p5((p:p5) =>{
                     }
                 }
                 if (square<dSquare){
-                    if(planeI===plane.length-1){
-                //   //   //   console.log("hello");
-                      
+                    if(planeI===plane.length-1){                      
                       originX+=((p.mouseX-originX)/5)
                       originY+=((p.mouseY-originY)/5)
                    }            
@@ -583,11 +487,6 @@ let p=new p5((p:p5) =>{
     
                     if (planeI===0){
                         planeP++;
-                        // if (scale<=1){
-                        //     scale-=0.5;
-                        // }else{
-                        //     scale-=1
-                        // }
                     }
                  }  
         }
@@ -597,17 +496,8 @@ let p=new p5((p:p5) =>{
         if (e.key==="d"){
             updateModes()
         }
-        // else if (e.key ==="i"&&data.length>=2){
-            // updateResultS()
-            // let re=await webR.evalR("Simpson(1)") as RDouble;
-            // console.log(`the area is: ${await re.toNumber()}`)
-
-        // }
-        
-        
     }  
 })
 
 
 
-// export {};
